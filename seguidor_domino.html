@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento de Fichas de Dominó Avanzado</title>
+    <style>
+        /* --- CSS Variables for Theming --- */
+        :root {
+            --primary-color: #2c3e50; /* Dark blue-grey */
+            --accent-color: #e74c3c;  /* Red */
+            --light-color: #ecf0f1;   /* Light grey */
+            --dark-color: #34495e;    /* Darker blue-grey */
+            --success-color: #27ae60; /* Green */
+            --warning-color: #f39c12; /* Orange for warnings */
+            --info-color: #3498db;    /* Blue for info/hand */
+        }
+
+        /* --- General Body Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+
+        /* --- Main Container --- */
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            position: relative; /* Needed for notification area positioning */
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+
+        /* --- Header Styling --- */
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--dark-color));
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+            min-height: 30px;
+        }
+
+        /* --- Statistics Section --- */
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background-color: var(--light-color);
+            border-radius: 10px;
+            padding: 15px 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            min-width: 140px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 5px 0;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #667;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- Domino Container --- */
+        .domino-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+            padding: 10px 0;
+            perspective: 1000px;
+        }
+
+        /* --- Individual Domino Styling --- */
+        .domino {
+            width: 60px;
+            height: 120px;
+            background: linear-gradient(to bottom, #fff, #f5f5f5);
+            border: 2px solid #ccc; /* Slightly thicker border */
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            backface-visibility: hidden;
+        }
+
+        .domino:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Style for removed dominoes */
+        .domino.removed {
+            transform: rotateY(180deg) scale(0.95);
+            opacity: 0.5;
+            background: #e0e0e0;
+            cursor: default;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-color: #bbb; /* Darker border when removed */
+        }
+
+        /* Style for dominoes marked as 'in hand' */
+        .domino.in-hand {
+            border-color: var(--info-color); /* Blue border for player's hand */
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3); /* Blue shadow */
+        }
+        .domino.in-hand::after { /* Optional: Add a small indicator */
+            content: 'Mano';
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 9px;
+            color: var(--info-color);
+            font-weight: bold;
+            background: rgba(255,255,255,0.7);
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+
+
+        /* Styling for each half of the domino */
+        .domino-half {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--dark-color);
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        /* Line separating the two halves */
+        .domino-half:first-child {
+            border-bottom: 3px solid #bbb;
+        }
+
+        /* Hide numbers when domino is removed */
+        .domino.removed .domino-half {
+            color: transparent;
+        }
+
+        /* --- Control Buttons --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* Reduced gap slightly */
+            margin: 30px 0; /* Adjusted margins */
+            flex-wrap: wrap;
+            align-items: center; /* Align items vertically */
+        }
+
+        button {
+            padding: 10px 24px; /* Adjusted padding */
+            font-size: 0.95rem; /* Adjusted font size */
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.5; /* Ensure text fits */
+        }
+         button:active {
+             transform: translateY(1px);
+             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+         button:focus {
+            outline: none;
+             box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.2);
+        }
+
+        .btn-reset { background-color: var(--accent-color); color: white; }
+        .btn-reset:hover { background-color: #c0392b; transform: translateY(-3px); box-shadow: 0 6px 12px rgba(231, 76, 60, 0.3); }
+
+        .btn-toggle { background-color: var(--primary-color); color: white; }
+        .btn-toggle:hover { background-color: #1a2533; transform: translateY(-3px); box-shadow: 0 6px 12px rgba(44, 62, 80, 0.3); }
+
+        /* Mode Toggle Button Specific Styles */
+        .btn-mode { background-color: var(--info-color); color: white; min-width: 210px; /* Ensure enough width for text */}
+        .btn-mode:hover { background-color: #2980b9; transform: translateY(-3px); box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3); }
+
+
+        /* --- Separator Line --- */
+        .separator {
+            margin: 30px 0; /* Adjusted margin */
+            height: 1px;
+            background: linear-gradient(to right, transparent, #ccc, transparent);
+        }
+
+         /* --- Insights Section --- */
+         #insightsContainer {
+            margin-top: 20px;
+            padding: 15px 20px;
+            background-color: #e9f7ef;
+            border: 1px solid #a7d7c5;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+         }
+         #insightsContainer h3 {
+             margin-top: 0;
+             margin-bottom: 10px;
+             color: var(--primary-color);
+             font-size: 1.2em;
+             border-bottom: 1px solid #ccc;
+             padding-bottom: 5px;
+             display: flex; /* Use flexbox for alignment */
+             justify-content: space-between; /* Space between title and mode */
+             align-items: center;
+         }
+         #currentModeIndicator { /* Style for the mode text */
+             font-size: 0.8em;
+             font-weight: normal;
+             color: var(--dark-color);
+             background-color: rgba(255, 255, 255, 0.6);
+             padding: 2px 6px;
+             border-radius: 4px;
+         }
+         #insightsList {
+             list-style: none;
+             padding: 0;
+             margin: 0;
+             font-size: 0.95em;
+         }
+         #insightsList li {
+             padding: 6px 0; /* Slightly more padding */
+             margin-bottom: 6px;
+             border-bottom: 1px dashed #d0e0d8;
+             line-height: 1.5; /* Improve readability */
+         }
+          #insightsList li:last-child { border-bottom: none; margin-bottom: 0; }
+         #insightsList li strong { display: inline-block; min-width: 110px; }
+         #insightsList .scarce { color: var(--accent-color); font-weight: bold; }
+         #insightsList .abundant { color: var(--success-color); }
+         #insightsList .suggestion { color: var(--dark-color); }
+         #insightsList .hand-info { color: var(--info-color); font-style: italic; } /* Style for hand-related info */
+
+
+        /* --- Notification Area --- */
+        #notificationArea {
+            position: fixed; /* Fixed position relative to viewport */
+            bottom: 20px; /* Position at the bottom */
+            left: 50%; /* Center horizontally */
+            transform: translateX(-50%); /* Adjust for centering */
+            z-index: 1000; /* Ensure it's above other content */
+            display: flex;
+            flex-direction: column; /* Stack notifications vertically */
+            align-items: center; /* Center notifications */
+            gap: 10px; /* Space between notifications */
+        }
+
+        .notification {
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.9em;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            opacity: 0; /* Start hidden */
+            transform: translateY(20px); /* Start slightly lower */
+            transition: opacity 0.5s ease, transform 0.5s ease; /* Smooth fade and slide */
+            min-width: 250px; /* Minimum width */
+            text-align: center;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notification.scarce { background-color: var(--warning-color); } /* Orange for scarce */
+        .notification.info { background-color: var(--info-color); } /* Blue for general info */
+
+
+        /* --- Responsive Design --- */
+        @media (max-width: 768px) {
+             /* Styles for medium screens */
+             .stats { gap: 20px; }
+             .stat-card { min-width: 120px; padding: 12px 20px; }
+             .stat-value { font-size: 1.8em; }
+             .domino { width: 55px; height: 110px; }
+             .domino-half { font-size: 1.6em; }
+             button { padding: 10px 20px; font-size: 0.9rem; }
+             .btn-mode { min-width: 190px; }
+             #insightsContainer { padding: 12px 15px; }
+             #insightsContainer h3 { font-size: 1.1em; }
+             #insightsList { font-size: 0.9em; }
+             #notificationArea { width: 90%; bottom: 10px; } /* Adjust notification area */
+             .notification { padding: 10px 15px; font-size: 0.85em; }
+        }
+
+        @media (max-width: 480px) {
+             /* Styles for small screens */
+            .container { padding: 15px; margin: 10px; }
+            .stats { gap: 15px; flex-direction: column; align-items: center;}
+            .stat-card { min-width: 150px; width: 80%; }
+            .domino-container { gap: 10px; }
+            .domino { width: 48px; height: 96px; } /* Slightly smaller */
+             .domino.in-hand::after { font-size: 8px; right: 2px; bottom: 1px;}
+            .domino-half { font-size: 1.3em; }
+            .controls { flex-direction: column; gap: 12px; align-items: center;}
+            button { width: 80%; padding: 12px 15px; }
+            .btn-mode { min-width: 0; width: 80%; } /* Allow button to shrink */
+             #insightsContainer { margin-top: 15px; }
+             #insightsList li strong { min-width: 90px; }
+             #insightsContainer h3 { flex-direction: column; align-items: flex-start; gap: 5px;}
+             .notification { min-width: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="notificationArea"></div>
+
+    <div class="container">
+        <header>
+            </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Disponibles</div>
+                <div class="stat-value" id="counter">28</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Removidas</div>
+                <div class="stat-value" id="removed">0</div>
+            </div>
+             <div class="stat-card"> <div class="stat-label">En Mano</div>
+                <div class="stat-value" id="handCount">0</div>
+            </div>
+        </div>
+
+        <div class="domino-container" id="dominoContainer">
+            </div>
+
+        <div class="controls">
+             <button id="modeToggleBtn" class="btn-mode">Modo: Marcar Removidas</button>
+            <button id="resetBtn" class="btn-reset">Reiniciar</button>
+            <button id="toggleAllBtn" class="btn-toggle">Marcar/Desmarcar Todas</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <div id="insightsContainer">
+             <h3>
+                Análisis y Sugerencias
+                <span id="currentModeIndicator">Modo: Removidas</span>
+            </h3>
+            <ul id="insightsList">
+                <li>Marca las fichas removidas o en tu mano para ver análisis.</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const container = document.getElementById('dominoContainer');
+            const resetBtn = document.getElementById('resetBtn');
+            const toggleAllBtn = document.getElementById('toggleAllBtn');
+            const modeToggleBtn = document.getElementById('modeToggleBtn'); // Mode toggle button
+            const counterElement = document.getElementById('counter');
+            const removedElement = document.getElementById('removed');
+            const handCountElement = document.getElementById('handCount'); // Hand count display
+            const insightsList = document.getElementById('insightsList');
+            const notificationArea = document.getElementById('notificationArea'); // Notification area
+            const currentModeIndicator = document.getElementById('currentModeIndicator'); // Mode indicator text
+
+            // State Variables
+            let allMarkedAsRemoved = false;
+            let dominoElements = [];
+            let removedCount = 0;
+            const TOTAL_DOMINOES = 28;
+            let currentMode = 'remove'; // 'remove' or 'hand'
+            let playerHandTiles = new Set(); // Stores identifiers of tiles in hand (e.g., "0-1")
+
+            // Insights Configuration
+            const INSIGHTS_THRESHOLD_LOW = 2; // Threshold for scarce numbers (available to opponents)
+            const INSIGHTS_THRESHOLD_HIGH = 5; // Threshold for abundant numbers (available to opponents)
+            const NOTIFICATION_DURATION = 5000; // 5 seconds
+
+            /**
+             * Displays a temporary notification message.
+             * @param {string} message - The text to display.
+             * @param {string} type - The type of notification ('scarce', 'info', etc.) for styling.
+             */
+            function showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`; // Apply base and type class
+                notification.textContent = message;
+                notificationArea.appendChild(notification);
+
+                // Trigger the transition for fade-in/slide-up
+                requestAnimationFrame(() => {
+                    notification.classList.add('show');
+                });
+
+                // Set timeout to remove the notification
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    // Remove the element from DOM after transition ends
+                    notification.addEventListener('transitionend', () => {
+                        // Check if the element still has a parent before trying to remove
+                        if (notification.parentNode) {
+                            notificationArea.removeChild(notification);
+                        }
+                    }, { once: true }); // Ensure listener is removed after firing once
+                }, NOTIFICATION_DURATION);
+            }
+
+
+             /**
+             * Analyzes the game state (removed tiles, player hand) and generates insights.
+             * Updates the insights list and shows notifications for critical alerts.
+             */
+            function generateInsights() {
+                insightsList.innerHTML = ''; // Clear previous insights
+                let insightsGenerated = false;
+
+                // 1. Calculate Opponent Available Number Counts
+                const opponentAvailableCounts = {};
+                for (let i = 0; i <= 6; i++) opponentAvailableCounts[i] = 0; // Initialize counts
+
+                dominoElements.forEach(domino => {
+                    // Consider a tile available to opponents if it's NOT removed AND NOT in the player's hand
+                    if (!domino.classList.contains('removed') && !domino.classList.contains('in-hand')) {
+                        const topVal = parseInt(domino.dataset.top);
+                        const bottomVal = parseInt(domino.dataset.bottom);
+                        opponentAvailableCounts[topVal]++;
+                        if (topVal !== bottomVal) {
+                            opponentAvailableCounts[bottomVal]++;
+                        }
+                    }
+                });
+
+                // 2. Handle edge cases
+                if (removedCount === 0 && playerHandTiles.size === 0) {
+                    insightsList.innerHTML = '<li>Marca las fichas removidas o en tu mano para ver análisis.</li>';
+                    return;
+                }
+                 if (removedCount + playerHandTiles.size === TOTAL_DOMINOES) {
+                    insightsList.innerHTML = '<li class="suggestion">Todas las fichas están marcadas (removidas o en mano). ¡Juego terminado o reinicia!</li>';
+                    return;
+                }
+
+
+                // 3. Analyze Opponent Available Counts for Scarcity/Abundance
+                const scarceNumbers = [];
+                const abundantNumbers = [];
+                for (let i = 0; i <= 6; i++) {
+                    const count = opponentAvailableCounts[i];
+                    if (count <= INSIGHTS_THRESHOLD_LOW) {
+                        scarceNumbers.push(i);
+                        const li = document.createElement('li');
+                        // Check if player has the double of the scarce number
+                        const doubleTileId = `${i}-${i}`;
+                        const hasDouble = playerHandTiles.has(doubleTileId);
+                        li.innerHTML = `<strong class="scarce">¡Pocos ${i} (Rivales)!</strong> Quedan ${count} ficha${count === 1 ? '' : 's'} disponibles para ellos.${hasDouble ? ' (Tienes el doble)' : ''}`;
+                        insightsList.appendChild(li);
+                        // Show notification only if the number is genuinely scarce (0 or 1 left for opponents)
+                        if (count <= 1) {
+                             showNotification(`¡Alerta! Pocos ${i} (${count} disponibles para rivales).`, 'scarce');
+                        }
+                        insightsGenerated = true;
+                    } else if (count >= INSIGHTS_THRESHOLD_HIGH) {
+                        abundantNumbers.push(i);
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong class="abundant">Abundante ${i} (Rivales):</strong> Aún quedan ${count} fichas con ${i} para ellos.`;
+                        insightsList.appendChild(li);
+                        insightsGenerated = true;
+                    }
+                }
+
+                // 4. Analyze Player's Hand
+                if (playerHandTiles.size > 0) {
+                    const handNumbersCount = {};
+                    for(let i=0; i<=6; i++) handNumbersCount[i] = 0;
+
+                    playerHandTiles.forEach(tileId => {
+                        const [top, bottom] = tileId.split('-').map(Number);
+                        handNumbersCount[top]++;
+                        if(top !== bottom) handNumbersCount[bottom]++;
+                    });
+
+                     const li = document.createElement('li');
+                     let handAnalysisText = '<strong class="hand-info">En tu mano:</strong> ';
+                     let handDetails = [];
+                     for (let i = 0; i <= 6; i++) {
+                         if (handNumbersCount[i] > 0) {
+                             handDetails.push(`${handNumbersCount[i]}x ${i}`);
+                         }
+                     }
+                     // Sort hand details numerically for better readability
+                     handDetails.sort((a, b) => parseInt(a.split('x ')[1]) - parseInt(b.split('x ')[1]));
+                     handAnalysisText += handDetails.join(', ') + '.';
+
+                     // Add specific suggestions based on hand and opponent availability
+                     let handSuggestions = [];
+                     scarceNumbers.forEach(num => {
+                         if (handNumbersCount[num] > 0) {
+                             handSuggestions.push(`Controla el ${num} escaso.`);
+                         }
+                     });
+                      // Suggest playing doubles if opponents have few of that number
+                     for (let i = 0; i <= 6; i++) {
+                         const doubleTileId = `${i}-${i}`;
+                         if (playerHandTiles.has(doubleTileId) && opponentAvailableCounts[i] <= INSIGHTS_THRESHOLD_LOW + 1) { // Slightly higher threshold for double suggestion
+                            handSuggestions.push(`Considera jugar el doble ${i}.`);
+                         }
+                     }
+
+                     if (handSuggestions.length > 0) {
+                         // Use Set to avoid duplicate suggestions
+                         handAnalysisText += ` (${[...new Set(handSuggestions)].join(' ')})`;
+                     }
+
+
+                     li.innerHTML = handAnalysisText;
+                     insightsList.appendChild(li);
+                     insightsGenerated = true;
+                }
+
+
+                // 5. Add General Suggestions
+                if (scarceNumbers.length > 0) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong class="suggestion">Sugerencia General:</strong> Intenta controlar los números escasos para los rivales (${scarceNumbers.join(', ')}) si puedes.`;
+                    insightsList.appendChild(li);
+                    insightsGenerated = true;
+                }
+                 if (abundantNumbers.length > 0 && scarceNumbers.length === 0 && playerHandTiles.size > 0) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong class="suggestion">Sugerencia General:</strong> Jugar números abundantes para rivales (${abundantNumbers.join(', ')}) puede ser seguro.`;
+                    insightsList.appendChild(li);
+                    insightsGenerated = true;
+                }
+
+                // 6. Default message if no specific insights were generated
+                if (!insightsGenerated && (removedCount > 0 || playerHandTiles.size > 0)) { // Show only if some action has been taken
+                    insightsList.innerHTML = '<li>No hay alertas o sugerencias destacadas por el momento.</li>';
+                } else if (removedCount === 0 && playerHandTiles.size === 0) {
+                     insightsList.innerHTML = '<li>Marca las fichas removidas o en tu mano para ver análisis.</li>';
+                }
+            }
+
+            /**
+             * Creates and displays all 28 domino tiles.
+             */
+            function createDominoes() {
+                container.innerHTML = '';
+                dominoElements = [];
+                removedCount = 0;
+                playerHandTiles.clear(); // Clear hand on creation
+                allMarkedAsRemoved = false;
+                currentMode = 'remove'; // Reset mode
+                updateModeButton(); // Update button text
+
+                updateUIDisplay(); // Update counters and insights
+
+                for (let i = 0; i <= 6; i++) {
+                    for (let j = i; j <= 6; j++) {
+                        const domino = document.createElement('div');
+                        domino.className = 'domino';
+                        // Create a consistent ID regardless of order (e.g., "1-2" not "2-1")
+                        const tileId = `${Math.min(i,j)}-${Math.max(i,j)}`;
+                        domino.dataset.id = tileId;
+                        domino.dataset.top = i;
+                        domino.dataset.bottom = j;
+
+                        const topHalf = document.createElement('div');
+                        topHalf.className = 'domino-half';
+                        topHalf.textContent = i;
+
+                        const bottomHalf = document.createElement('div');
+                        bottomHalf.className = 'domino-half';
+                        bottomHalf.textContent = j;
+
+                        domino.appendChild(topHalf);
+                        domino.appendChild(bottomHalf);
+
+                        // Single click handler manages both modes
+                        domino.addEventListener('click', handleDominoClick);
+
+                        container.appendChild(domino);
+                        dominoElements.push(domino);
+                    }
+                }
+            }
+
+             /**
+             * Handles clicks on domino tiles based on the current mode.
+             * @param {Event} event - The click event.
+             */
+            function handleDominoClick(event) {
+                 const domino = event.currentTarget;
+                 const tileId = domino.dataset.id;
+
+                 if (currentMode === 'remove') {
+                     // Mode: Mark tiles played by others (or initially removed)
+                     const wasRemoved = domino.classList.contains('removed');
+                     if (wasRemoved) {
+                         // Un-mark as removed (correcting a mistake)
+                         domino.classList.remove('removed');
+                         removedCount--;
+                     } else {
+                         // Cannot mark as removed if it's in hand
+                         if (domino.classList.contains('in-hand')) {
+                             showNotification("Esta ficha está en tu mano. Cambia a 'Modo: Marcar Mi Mano' para jugarla.", "info");
+                             return; // Prevent marking hand tile as removed directly
+                         }
+                         domino.classList.add('removed');
+                         removedCount++;
+                     }
+                 } else { // currentMode === 'hand'
+                     // Mode: Manage player's hand
+                     const isInHand = domino.classList.contains('in-hand');
+                     if (isInHand) {
+                         // --- Action: Play tile FROM hand ---
+                         // 1. Remove from hand visually and logically
+                         domino.classList.remove('in-hand');
+                         playerHandTiles.delete(tileId);
+                         // 2. Mark it as removed (since it's now on the table)
+                         domino.classList.add('removed');
+                         removedCount++;
+                         showNotification(`Jugaste ${tileId}.`, "info"); // Notify which tile was played
+
+                     } else {
+                         // --- Action: Add tile TO hand ---
+                         // Cannot add to hand if it's already removed
+                         if (domino.classList.contains('removed')) {
+                             showNotification("No puedes añadir a tu mano una ficha marcada como removida.", "info");
+                             return; // Prevent adding removed tile to hand
+                         }
+                         domino.classList.add('in-hand');
+                         playerHandTiles.add(tileId);
+                     }
+                 }
+                 updateUIDisplay(); // Update counters and generate new insights
+             }
+
+
+            /**
+             * Updates all relevant UI elements (counters, insights).
+             */
+            function updateUIDisplay() {
+                const availableCount = TOTAL_DOMINOES - removedCount - playerHandTiles.size;
+                counterElement.textContent = Math.max(0, availableCount); // Ensure non-negative
+                removedElement.textContent = removedCount;
+                handCountElement.textContent = playerHandTiles.size;
+                generateInsights();
+            }
+
+            /**
+             * Updates the mode toggle button text and the indicator in the insights header.
+             */
+             function updateModeButton() {
+                 if (currentMode === 'remove') {
+                     modeToggleBtn.textContent = 'Modo: Marcar Removidas';
+                     currentModeIndicator.textContent = 'Modo: Removidas';
+                 } else {
+                     modeToggleBtn.textContent = 'Modo: Marcar Mi Mano';
+                      currentModeIndicator.textContent = 'Modo: Mi Mano';
+                 }
+             }
+
+            /**
+             * Resets all dominoes, counts, hand, and mode.
+             */
+            function resetAllDominoes() {
+                dominoElements.forEach(domino => {
+                    domino.classList.remove('removed', 'in-hand');
+                });
+                removedCount = 0;
+                playerHandTiles.clear();
+                allMarkedAsRemoved = false;
+                currentMode = 'remove'; // Reset mode to default
+                updateModeButton();
+                updateUIDisplay();
+                showNotification("Tablero reiniciado.", "info"); // Inform user
+            }
+
+            /**
+             * Toggles all dominoes to the 'removed' state (clears hand).
+             */
+            function toggleAllDominoes() {
+                // This function now primarily acts as a "Mark All as Removed"
+                // because toggling all back doesn't make sense with the hand concept.
+                 if (!allMarkedAsRemoved) { // Only allow toggling to 'all removed' state
+                    allMarkedAsRemoved = true;
+                    playerHandTiles.clear(); // Clear hand when marking all as removed
+
+                    dominoElements.forEach(domino => {
+                         domino.classList.add('removed');
+                         domino.classList.remove('in-hand'); // Ensure removed from hand
+                    });
+                    removedCount = TOTAL_DOMINOES;
+
+                    currentMode = 'remove'; // Reset mode
+                    updateModeButton();
+                    updateUIDisplay();
+                    showNotification("Todas las fichas marcadas como removidas.", "info");
+                 } else {
+                     // If already all removed, suggest resetting instead
+                     showNotification("Todas las fichas ya están marcadas. Usa 'Reiniciar' para empezar de nuevo.", "info");
+                 }
+
+            }
+
+            // --- Event Listeners ---
+            resetBtn.addEventListener('click', resetAllDominoes);
+            toggleAllBtn.addEventListener('click', toggleAllDominoes);
+
+             // Listener for the mode toggle button
+             modeToggleBtn.addEventListener('click', () => {
+                 currentMode = (currentMode === 'remove') ? 'hand' : 'remove';
+                 updateModeButton();
+                 showNotification(`Modo cambiado a: ${currentMode === 'remove' ? 'Marcar Removidas' : 'Marcar Mi Mano'}`, 'info');
+             });
+
+
+            // --- Initialization ---
+            createDominoes(); // Create the initial set of dominoes
+        });
+    </script>
+</body>
+</html>
